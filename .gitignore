@@ -21,3 +21,4 @@ android/gradle.properties.before-*
 =
 
 /android/app/.cxx/
+serviceAccountKey.json

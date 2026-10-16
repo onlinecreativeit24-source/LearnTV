@@ -1,4 +1,5 @@
-import React, {useState} from 'react';
+import React, {useState, useEffect} from 'react';
+import {getCategoryContent, LearnTVContent} from './src/data/firestoreContent';
 import {
   BackHandler,
   Pressable,
@@ -53,6 +54,16 @@ const categories: Category[] = [
   {title: 'SPACE', subtitle: 'Stars, planets & beyond', icon: '🚀'},
   {title: 'HISTORY', subtitle: 'People, events & civilizations', icon: '🏛️'},
   {title: 'TECHNOLOGY', subtitle: 'Discover the digital world', icon: '💻'},
+  {title: 'ARABIC LEARNING', subtitle: 'Arabic letters & Mohammadi Qaida', icon: '📖'},
+  {title: 'CHILDREN LEARNING', subtitle: 'ABC, numbers, colors & shapes', icon: '🧸'},
+  {title: 'MOTHER & BABY CARE', subtitle: 'Learning for mothers and caregivers', icon: '🤱'},
+  {title: 'DAILY FITNESS', subtitle: 'Movement, stretching & exercise', icon: '💪'},
+  {title: 'HEALTHY LIVING', subtitle: 'Nutrition, hydration & sleep', icon: '🥗'},
+  {title: 'MENTAL WELLNESS', subtitle: 'Relaxation & mindfulness', icon: '🧘'},
+  {title: 'ENGLISH LEARNING', subtitle: 'Vocabulary & everyday English', icon: '🔤'},
+  {title: 'DIGITAL SKILLS', subtitle: 'Computer basics & online safety', icon: '🖥️'},
+  {title: 'ENVIRONMENT & NATURE', subtitle: 'Animals, plants & our planet', icon: '🌿'},
+  {title: 'FAMILY QUIZ', subtitle: 'Friendly quizzes for all ages', icon: '👨‍👩‍👧‍👦'},
 ];
 
 const lessons: Lesson[] = [
@@ -672,6 +683,43 @@ export default function App() {
   const [selectedCategory, setSelectedCategory] =
     useState<Category | null>(null);
   const [selectedLesson, setSelectedLesson] = useState<Lesson | null>(null);
+  const [firestoreContent, setFirestoreContent] = useState<LearnTVContent[]>([]);
+  const [contentLoading, setContentLoading] = useState(false);
+  const [contentError, setContentError] = useState('');
+  const [selectedContent, setSelectedContent] = useState<LearnTVContent | null>(null);
+
+  // AUTO_LOAD_FIRESTORE_CATEGORY
+  useEffect(() => {
+    if (screen !== 'category' || !selectedCategory) return;
+
+    let cancelled = false;
+
+    setContentLoading(true);
+    setContentError('');
+    setFirestoreContent([]);
+    setSelectedContent(null);
+
+    getCategoryContent(selectedCategory.title)
+      .then(items => {
+        if (!cancelled) setFirestoreContent(items);
+      })
+      .catch(error => {
+        if (!cancelled) {
+          setContentError(
+            error instanceof Error ? error.message : 'Unable to load content.',
+          );
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setContentLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [screen, selectedCategory]);
+
+
 
   const [completedLessons, setCompletedLessons] = useState<string[]>([]);
   const [questionIndex, setQuestionIndex] = useState(0);
@@ -1712,9 +1760,26 @@ export default function App() {
   }
 
   if (screen === 'category' && selectedCategory) {
+    const loadCategoryContent = async () => {
+      setContentLoading(true);
+      setContentError('');
+      setSelectedContent(null);
+
+      try {
+        const items = await getCategoryContent(selectedCategory.title);
+        setFirestoreContent(items);
+      } catch (error) {
+        setContentError(
+          error instanceof Error ? error.message : 'Unable to load content.',
+        );
+      } finally {
+        setContentLoading(false);
+      }
+    };
+
     return (
       <SafeAreaView style={styles.container}>
-        <View style={styles.categoryContainer}>
+        <ScrollView contentContainerStyle={styles.categoryContainer}>
           <Pressable
             focusable
             hasTVPreferredFocus
@@ -1727,21 +1792,57 @@ export default function App() {
           </Pressable>
 
           <Text style={styles.categoryIcon}>{selectedCategory.icon}</Text>
-
           <Text style={styles.detailTitle}>{selectedCategory.title}</Text>
-
           <Text style={styles.detailDescription}>
             {selectedCategory.subtitle}
           </Text>
 
-          <View style={styles.comingSoon}>
-            <Text style={styles.comingSoonTitle}>CONTENT COMING NEXT</Text>
+          <Pressable
+            focusable
+            onPress={loadCategoryContent}
+            style={({focused}) => [
+              styles.continueButton,
+              focused && styles.buttonFocused,
+            ]}>
+            <Text style={styles.continueText}>LOAD CONTENT</Text>
+          </Pressable>
+
+          {contentLoading && (
+            <Text style={styles.comingSoonText}>Loading content...</Text>
+          )}
+
+          {!!contentError && (
             <Text style={styles.comingSoonText}>
-              More {selectedCategory.title.toLowerCase()} content is being
-              prepared for LearnTV.
+              Could not load content: {contentError}
             </Text>
-          </View>
-        </View>
+          )}
+
+          {!contentLoading && !contentError && firestoreContent.length === 0 && (
+            <Text style={styles.comingSoonText}>
+              Select LOAD CONTENT to browse available lessons.
+            </Text>
+          )}
+
+          {firestoreContent.map(item => (
+            <Pressable
+              key={item.id}
+              focusable
+              onPress={() => setSelectedContent(item)}
+              style={({focused}) => [
+                styles.comingSoon,
+                focused && styles.buttonFocused,
+              ]}>
+              <Text style={styles.comingSoonTitle}>{item.title}</Text>
+              <Text style={styles.comingSoonText}>{item.description}</Text>
+              {selectedContent?.id === item.id &&
+                item.points?.map((point, index) => (
+                  <Text key={`${item.id}-${index}`} style={styles.comingSoonText}>
+                    {index + 1}. {point}
+                  </Text>
+                ))}
+            </Pressable>
+          ))}
+        </ScrollView>
       </SafeAreaView>
     );
   }

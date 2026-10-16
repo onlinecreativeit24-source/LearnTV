@@ -38,9 +38,20 @@ jobs:
       - name: Make Gradle executable
         run: chmod +x android/gradlew
 
+      - name: Check Android build configuration
+        run: |
+          echo "=== Gradle wrapper ==="
+          grep distributionUrl android/gradle/wrapper/gradle-wrapper.properties
+          echo "=== Android Gradle Plugin ==="
+          grep -R -n "com.android.tools.build:gradle\|com.android.application.*version\|com.android.tools.build:gradle" android/build.gradle android/settings.gradle android/gradle 2>/dev/null || true
+          echo "=== Package scripts ==="
+          npm run
+          echo "=== Java ==="
+          java -version
+
       - name: Clean Gradle build
         working-directory: android
-        run: ./gradlew clean --no-daemon
+        run: ./gradlew clean --no-daemon --stacktrace
 
       - name: Diagnose AAPT2
         run: |
@@ -60,7 +71,7 @@ jobs:
 
       - name: Build Debug APK
         working-directory: android
-        run: ./gradlew assembleDebug --no-daemon --stacktrace --info
+        run: ./gradlew assembleDebug --no-daemon --stacktrace
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
