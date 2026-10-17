@@ -2054,7 +2054,7 @@ const styles = StyleSheet.create({
 
   categoryCardTitle: {
     color: '#FFFFFF',
-    fontSize: 20,
+    fontSize: 17,
     fontWeight: '800',
   },
 
