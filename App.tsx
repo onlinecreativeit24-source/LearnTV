@@ -1893,7 +1893,13 @@ export default function App() {
                 focused && styles.categoryFocused,
               ]}>
               <Text style={styles.categoryCardIcon}>{category.icon}</Text>
-              <Text style={styles.categoryCardTitle}>{category.title}</Text>
+              <Text
+                style={styles.categoryCardTitle}
+                numberOfLines={2}
+                adjustsFontSizeToFit
+                minimumFontScale={0.8}>
+                {category.title}
+              </Text>
               <Text style={styles.categoryCardSubtitle}>
                 {category.subtitle}
               </Text>
@@ -2032,8 +2038,8 @@ const styles = StyleSheet.create({
   },
 
   categoryCard: {
-    width: '31.5%',
-    minHeight: 150,
+    width: '48%',
+    minHeight: 170,
     padding: 23,
     borderRadius: 16,
     backgroundColor: '#1A202C',
