@@ -1,4 +1,4 @@
-name: LearnTV Android Build
+name: LearnTV Android Release Build
 
 on:
   workflow_dispatch:
@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Setup Node.js
@@ -35,6 +35,21 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
 
+      - name: Prepare release signing key
+        shell: bash
+        env:
+          KEYSTORE_BASE64: ${{ secrets.LEARNTV_UPLOAD_KEYSTORE_BASE64 }}
+        run: |
+          set -euo pipefail
+          test -n "$KEYSTORE_BASE64"
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$HOME/learntv-upload-key.jks"
+          chmod 600 "$HOME/learntv-upload-key.jks"
+          test -s "$HOME/learntv-upload-key.jks"
+          keytool -list -keystore "$HOME/learntv-upload-key.jks" \
+            -storepass "${{ secrets.LEARNTV_UPLOAD_STORE_PASSWORD }}" \
+            -alias "${{ secrets.LEARNTV_UPLOAD_KEY_ALIAS }}" >/dev/null
+          echo "Release signing keystore verified."
+
       - name: Make Gradle executable
         run: chmod +x android/gradlew
 
@@ -42,35 +57,31 @@ jobs:
         working-directory: android
         run: ./gradlew clean --no-daemon
 
-      - name: Build Release APK
+      - name: Build signed Release APK
         working-directory: android
+        env:
+          ORG_GRADLE_PROJECT_LEARNTV_UPLOAD_STORE_PASSWORD: ${{ secrets.LEARNTV_UPLOAD_STORE_PASSWORD }}
+          ORG_GRADLE_PROJECT_LEARNTV_UPLOAD_KEY_ALIAS: ${{ secrets.LEARNTV_UPLOAD_KEY_ALIAS }}
         run: ./gradlew assembleRelease --no-daemon --stacktrace
 
-      - name: Verify APK and JavaScript bundle
+      - name: Verify Release APK
         shell: bash
         run: |
           set -euo pipefail
-
           APK="android/app/build/outputs/apk/release/app-release.apk"
-
           if [ ! -f "$APK" ]; then
             echo "ERROR: Release APK was not created."
             find android/app/build/outputs -type f -name '*.apk' -print
             exit 1
           fi
-
-          echo "=== APK FILE ==="
+          echo "Release APK created:"
           ls -lh "$APK"
-
-          echo "=== VERIFY JAVASCRIPT BUNDLE ==="
-          unzip -l "$APK" | grep -E 'assets/index\.android\.bundle|assets/.*\.bundle' || {
-            echo "ERROR: JavaScript bundle was not found inside the APK."
-            exit 1
-          }
+          echo "Checking JavaScript bundle..."
+          unzip -l "$APK" | grep -E 'assets/index\.android\.bundle|assets/.*\.bundle'
 
       - name: Upload Release APK
         uses: actions/upload-artifact@v4
         with:
           name: LearnTV-release-apk
-          path: android/app/build/outputs/apk/release/*.apk
+          path: android/app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
